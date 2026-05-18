@@ -1,11 +1,3 @@
-"""Desktop pet framework (Tkinter, single-file).
-
-This provides a minimal structure for:
-- window setup (always-on-top, borderless)
-- update loop
-- behaviors (idle/move/etc.)
-- dragging and a context menu
-"""
 
 from __future__ import annotations
 
