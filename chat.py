@@ -1,4 +1,3 @@
-"""Ollama chat helper for the desktop pet."""
 
 from __future__ import annotations
 
