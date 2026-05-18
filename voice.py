@@ -1,4 +1,3 @@
-"""Simple Windows TTS helper using PowerShell System.Speech."""
 
 from __future__ import annotations
 
