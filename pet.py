@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import glob
+import math
 import os
 import random
 import threading
@@ -20,6 +21,8 @@ class PetConfig:
 	scale: float = 1.0
 	fps: int = 30
 	move_speed: int = 3
+	roam_vertical_amplitude: int = 18
+	roam_vertical_period: float = 2.2
 	idle_bob_px: int = 6
 	idle_bob_period: float = 1.8
 	assets_dir: str = "sources"
@@ -65,14 +68,28 @@ class IdleBehavior(Behavior):
 class RoamBehavior(Behavior):
 	def enter(self) -> None:
 		self._direction = random.choice([-1, 1])
+		x, y = self.pet.get_position()
+		self._base_y = y
+		self._phase = random.uniform(0.0, math.tau)
 
 	def update(self, dt: float) -> None:
 		x, y = self.pet.get_position()
 		x += int(self._direction * self.pet.config.move_speed)
+		period = max(0.1, self.pet.config.roam_vertical_period)
+		self._phase += math.tau * dt / period
+		amplitude = max(0, int(self.pet.config.roam_vertical_amplitude))
+		y = int(self._base_y + math.sin(self._phase) * amplitude)
+		y = self._clamp_vertical(y)
+		self._base_y = y - int(math.sin(self._phase) * amplitude)
 		self.pet.set_position(x, y)
 		self.pet.render_idle(0)
 		if not self.pet.is_on_screen():
 			self._direction *= -1
+
+	def _clamp_vertical(self, y: int) -> int:
+		screen_h = self.pet.root.winfo_screenheight()
+		max_y = max(0, screen_h - self.pet.render_size)
+		return max(0, min(y, max_y))
 
 
 class DesktopPet:
