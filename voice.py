@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import os
@@ -67,10 +66,30 @@ def play_wav(path: str) -> None:
 	winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
+def stop_audio() -> None:
+	import winsound
+
+	winsound.PlaySound(None, winsound.SND_ASYNC)
+
+
+_suppress_event = threading.Event()
+
+
+def set_suppressed(value: bool) -> None:
+	if value:
+		_suppress_event.set()
+		stop_audio()
+	else:
+		_suppress_event.clear()
+
+
 def _random_wav_loop(directory: str, min_delay: float, max_delay: float, stop_event: threading.Event) -> None:
 	min_delay = max(0.1, float(min_delay))
 	max_delay = max(min_delay, float(max_delay))
 	while not stop_event.is_set():
+		if _suppress_event.is_set():
+			stop_event.wait(0.5)
+			continue
 		wavs = list_wavs(directory)
 		if wavs:
 			play_wav(random.choice(wavs))
