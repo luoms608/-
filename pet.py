@@ -5,14 +5,20 @@ import glob
 import math
 import os
 import random
+import queue
 import threading
 import time
 import tkinter as tk
 from tkinter import simpledialog
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import chat
+import tts
+import voice
+
+if TYPE_CHECKING:
+	from PIL import Image
 
 
 @dataclass
@@ -40,6 +46,23 @@ class PetConfig:
 	max_frames_per_gif: int = 80
 	frame_step: int = 1
 	preload_special_frames: bool = False
+	tts_enabled: bool = False
+	tts_endpoint_url: str = "http://127.0.0.1:9880/tts"
+	tts_text_lang: str = "ja"
+	tts_ref_audio_path: str = ""
+	tts_prompt_lang: str = "ja"
+	tts_prompt_text: str = ""
+	tts_auto_switch_weights: bool = False
+	tts_gpt_weights_path: str = ""
+	tts_sovits_weights_path: str = ""
+	tts_ref_audio_dir: str = "voices"
+	tts_ref_min_seconds: float = 3.0
+	tts_ref_max_seconds: float = 10.0
+	tts_text_split_method: str = "cut5"
+	tts_batch_size: int = 1
+	tts_split_bucket: bool = True
+	tts_speed_factor: float = 1.0
+	tts_cooldown_seconds: float = 2.0
 
 
 class Behavior:
@@ -115,14 +138,49 @@ class DesktopPet:
 		self._special_until = 0.0
 		self._special_move_dir = 1
 		self._bubble_items: list[int] = []
+		self._tts_config: Optional[tts.TTSConfig] = None
+		self._tts_cooldown_until = 0.0
+		self._tts_queue: queue.Queue[str] = queue.Queue(maxsize=1)
+		threading.Thread(target=self._tts_worker, daemon=True).start()
 
 		self._setup_window()
 		self._setup_canvas()
 		self._load_gif_animations()
 		self._setup_menu()
 
+		self._configure_tts()
 		self.set_behavior(self._behavior)
 		self._loop()
+
+	def _configure_tts(self) -> None:
+		if not self.config.tts_enabled:
+			self._tts_config = None
+			return
+		if not self.config.tts_endpoint_url:
+			self._tts_config = None
+			return
+		self._tts_config = tts.TTSConfig(
+			endpoint_url=self.config.tts_endpoint_url,
+			text_lang=self.config.tts_text_lang,
+			ref_audio_path=self.config.tts_ref_audio_path,
+			ref_audio_dir=self.config.tts_ref_audio_dir,
+			ref_min_seconds=self.config.tts_ref_min_seconds,
+			ref_max_seconds=self.config.tts_ref_max_seconds,
+			prompt_lang=self.config.tts_prompt_lang,
+			prompt_text=self.config.tts_prompt_text,
+			text_split_method=self.config.tts_text_split_method,
+			batch_size=self.config.tts_batch_size,
+			split_bucket=self.config.tts_split_bucket,
+			speed_factor=self.config.tts_speed_factor,
+		)
+		if self.config.tts_auto_switch_weights:
+			try:
+				if self.config.tts_gpt_weights_path:
+					tts.set_gpt_weights(self.config.tts_endpoint_url, self.config.tts_gpt_weights_path)
+				if self.config.tts_sovits_weights_path:
+					tts.set_sovits_weights(self.config.tts_endpoint_url, self.config.tts_sovits_weights_path)
+			except Exception as exc:
+				print(f"[tts] play error: {exc}")
 
 	def _setup_window(self) -> None:
 		self.root.overrideredirect(True)
@@ -235,10 +293,42 @@ class DesktopPet:
 		except Exception as exc:
 			reply = f"Error: {exc}"
 		self.root.after(0, lambda: self._show_reply(reply))
+		self._speak_reply(reply, ignore_cooldown=True)
+
+	def _speak_reply(self, reply: str, ignore_cooldown: bool = False) -> None:
+		if not self._tts_config:
+			return
+		now = time.time()
+		if not ignore_cooldown and now < self._tts_cooldown_until:
+			return
+		self._tts_cooldown_until = now + max(0.0, self.config.tts_cooldown_seconds)
+		self._enqueue_tts(reply)
+
+	def _enqueue_tts(self, text: str) -> None:
+		try:
+			self._tts_queue.put_nowait(text)
+		except queue.Full:
+			return
+
+	def _tts_worker(self) -> None:
+		while True:
+			text = self._tts_queue.get()
+			try:
+				if not self._tts_config:
+					continue
+				voice.set_suppressed(True)
+				path = tts.speak(text, self._tts_config, auto_play=False)
+				print(f"[tts] play start: {path}")
+				tts.play_wav_sync(path)
+				print(f"[tts] play done: {path}")
+			except Exception:
+				pass
+			finally:
+				voice.set_suppressed(False)
 
 	def _show_reply(self, reply: str) -> None:
 		chunks = self._split_text(reply, max_len=150)
-		self._show_bubble_sequence(chunks, hold_seconds=3.0, gap_seconds=1.5)
+		self._show_bubble_sequence(chunks, hold_seconds=30.0, gap_seconds=1.0)
 
 	def _show_bubble_sequence(
 		self,
@@ -418,7 +508,7 @@ class DesktopPet:
 		if not paths:
 			return
 		try:
-			from PIL import Image, ImageTk  # type: ignore
+			from PIL import Image, ImageTk  
 		except Exception:
 			return
 		for path in paths:
@@ -455,7 +545,7 @@ class DesktopPet:
 
 	def _load_gif_frames(self, path: str, full_frames: bool = False) -> tuple[list[tk.PhotoImage], list[float]]:
 		try:
-			from PIL import Image, ImageTk  # type: ignore
+			from PIL import Image, ImageTk  
 		except Exception:
 			return ([], [])
 		frames: list[tk.PhotoImage] = []
@@ -492,7 +582,7 @@ class DesktopPet:
 
 	def _apply_chroma_key(self, img: "Image.Image", key_color: tuple[int, int, int]) -> "Image.Image":
 		try:
-			from PIL import Image, ImageChops  # type: ignore
+			from PIL import Image, ImageChops  
 		except Exception:
 			return img
 		img = img.convert("RGBA")
