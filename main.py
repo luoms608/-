@@ -1,4 +1,4 @@
-"""Entry point to run the pet and trigger voice."""
+
 
 from __future__ import annotations
 
