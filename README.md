@@ -5,9 +5,9 @@
 人物模型，语音文本来自明日方舟wiki站https://prts.wiki
 
 
-运行前需要安装ollama本地模型，在chat.py里修改对应的模型
+运行前需要安装ollama本地模型，在config.py里修改对应的模型
 
-运行前需安装好对应的本地语音模型gpt-sovits https://github.com/RVC-Boss/GPT-SoVITS  ，需要在main.py里修改自己训练模型所对应的位置
+运行前需安装好对应的本地语音模型gpt-sovits https://github.com/RVC-Boss/GPT-SoVITS  ，需要在config.py里修改自己训练模型所对应的位置
 
 运行前需安装好对应的环境pip install -r requirments.txt
 
