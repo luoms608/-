@@ -58,6 +58,7 @@ class PetConfig:
 	tts_ref_audio_dir: str = "voices"
 	tts_ref_min_seconds: float = 3.0
 	tts_ref_max_seconds: float = 10.0
+	tts_output_dir: str = "output"
 	tts_text_split_method: str = "cut5"
 	tts_batch_size: int = 1
 	tts_split_bucket: bool = True
@@ -166,6 +167,7 @@ class DesktopPet:
 			ref_audio_dir=self.config.tts_ref_audio_dir,
 			ref_min_seconds=self.config.tts_ref_min_seconds,
 			ref_max_seconds=self.config.tts_ref_max_seconds,
+			output_path=self.config.tts_output_dir,
 			prompt_lang=self.config.tts_prompt_lang,
 			prompt_text=self.config.tts_prompt_text,
 			text_split_method=self.config.tts_text_split_method,

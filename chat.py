@@ -1,10 +1,11 @@
 
-
 from __future__ import annotations
 
 import json
 import urllib.request
 from typing import Iterable, Optional
+
+import config
 
 try:
 	from langchain_core.messages import HumanMessage, SystemMessage
@@ -16,11 +17,14 @@ except Exception:
 
 def chat(
 	prompt: str,
-	model: str = "qwen3-coder:480b-cloud",
-	host: str = "http://localhost:11434",
+	model: Optional[str] = None,
+	host: Optional[str] = None,
 	system: Optional[str] = None,
 ) -> str:
-	"""Send a prompt to Ollama and return the response text."""
+	if model is None:
+		model = config.OLLAMA_MODEL
+	if host is None:
+		host = config.OLLAMA_BASE_URL
 	if system is None:
 		system = _load_persona()
 	if _LANGCHAIN_AVAILABLE:
@@ -41,11 +45,14 @@ def _build_messages(prompt: str, system: Optional[str]) -> list[object]:
 
 def stream_chat(
 	prompt: str,
-	model: str = "qwen3-coder:480b-cloud",
-	host: str = "http://localhost:11434",
+	model: Optional[str] = None,
+	host: Optional[str] = None,
 	system: Optional[str] = None,
 ) -> Iterable[str]:
-	"""Stream tokens from Ollama (yields chunks of text)."""
+	if model is None:
+		model = config.OLLAMA_MODEL
+	if host is None:
+		host = config.OLLAMA_BASE_URL
 	if system is None:
 		system = _load_persona()
 	if _LANGCHAIN_AVAILABLE:
@@ -62,7 +69,7 @@ def stream_chat(
 
 def _load_persona() -> str:
 	try:
-		with open("persona.txt", "r", encoding="utf-8") as handle:
+		with open(config.PERSONA_PATH, "r", encoding="utf-8") as handle:
 			return handle.read().strip()
 	except Exception:
 		return ""

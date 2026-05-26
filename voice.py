@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import os
@@ -13,12 +14,7 @@ def _ps_escape(value: str) -> str:
 
 
 def speak(text: str, rate: int = 0, volume: int = 100, voice: Optional[str] = None) -> None:
-	"""Speak text asynchronously using Windows SAPI via PowerShell.
-
-	- rate: -10..10
-	- volume: 0..100
-	- voice: optional voice name (exact match)
-	"""
+	
 	rate = max(-10, min(10, int(rate)))
 	volume = max(0, min(100, int(volume)))
 	safe_text = _ps_escape(text)
